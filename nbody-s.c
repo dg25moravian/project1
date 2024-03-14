@@ -50,8 +50,8 @@
 
 typedef struct body {
     double mass;
-    double x, y;
-    double vx, vy;
+    double x, y, z;
+    double vx, vy, vz;
 } body;
 
 typedef struct {
@@ -179,9 +179,13 @@ int main(int argc, const char* argv[]) {
     double* velocity_y = (double*)malloc(n * sizeof(double));
     double* velocity_z = (double*)malloc(n * sizeof(double));
 
+    double* future_velocity_x = (double*)malloc(n * sizeof(double));
+    double* future_velocity_y = (double*)malloc(n * sizeof(double));
+    double* future_velocity_z = (double*)malloc(n * sizeof(double));
 
-    Matrix* current_postions = matrix_create_raw(n, 7);
-    Matrix* future_velocity = matrix_create_raw(n, 3);
+
+    //Matrix* current_postions = matrix_create_raw(n, 7);
+    //Matrix* future_velocity = matrix_create_raw(n, 3);
     for(int i = 0; i < n; i++)
     {   
         masses[i] = MATRIX_AT(input, i, 0);
@@ -193,6 +197,13 @@ int main(int argc, const char* argv[]) {
         velocity_x[i] = MATRIX_AT(input, i, 4);
         velocity_y[i] = MATRIX_AT(input, i, 5);
         velocity_z[i] = MATRIX_AT(input, i, 6);
+
+        future_velocity_x[i] = velocity_x[i];
+        future_velocity_y[i] = velocity_y[i];
+        future_velocity_z[i] = velocity_z[i];
+
+        //prints the current position and velocity)
+        printf("Assigned Position: %f, %f, %f\n", current_x[i], current_y[i], current_z[i]);
     }
 
     
@@ -204,44 +215,39 @@ int main(int argc, const char* argv[]) {
  * 2. Calculate the net force on the object using the superposition principle with all the forces calculated in step 1
  * 3. Calculate the acceleration of the object using Newton's Second Law of Motion
 */
-    //Point forces[n];
-    //Point body;
-    //double masses[n];
-   // Point force;
+
     Point totalForces;
-
-
     for (size_t t = 1; t < num_steps; t++) 
     {
     // TODO: compute time step...
 
         for(int i = 0; i < n; i++)
         {
-            totalForces = calculateNetForce(current_postions, i);
+            totalForces = calculateNetForce(masses, current_x, current_y, current_z, velocity_x, velocity_y, velocity_z, n, i);
 
-            Point acceleration = calculateAcceleration(totalForces, MATRIX_AT(current_postions, i, 0));
+            Point acceleration = calculateAcceleration(totalForces, masses[i]);
             
             // Update the future velocity
-            MATRIX_AT(future_velocity, i, 0) += acceleration.x * time_step;
-            MATRIX_AT(future_velocity, i, 1) += acceleration.y * time_step;
-            MATRIX_AT(future_velocity, i, 2) += acceleration.z * time_step;
+            future_velocity_x[i] += acceleration.x * time_step;
+            future_velocity_y[i] += acceleration.y * time_step;
+            future_velocity_z[i] += acceleration.z * time_step;
             
 
         }
         for(int i = 0; i < n; i++)
         {
             // Update the current position
-            MATRIX_AT(current_postions, i, 1) += MATRIX_AT(future_velocity, i, 0) * time_step;
-            MATRIX_AT(current_postions, i, 2) += MATRIX_AT(future_velocity, i, 1) * time_step;
-            MATRIX_AT(current_postions, i, 3) += MATRIX_AT(future_velocity, i, 2) * time_step;
+            current_x[i] += future_velocity_x[i] * time_step;
+            current_y[i] += future_velocity_y[i] * time_step;
+            current_z[i] += future_velocity_z[i] * time_step;
             
             // Update the current velocity
-            MATRIX_AT(current_postions, i, 4) = MATRIX_AT(future_velocity, i, 0);
-            MATRIX_AT(current_postions, i, 5) = MATRIX_AT(future_velocity, i, 1);
-            MATRIX_AT(current_postions, i, 6) = MATRIX_AT(future_velocity, i, 2);
+            velocity_x[i] = future_velocity_x[i];
+            velocity_y[i] = future_velocity_y[i];
+            velocity_z[i] = future_velocity_z[i];
 
-            //prints the current position and velocity
-            printf("Position: %f %f %f\n", MATRIX_AT(current_postions, i, 1), MATRIX_AT(current_postions, i, 2), MATRIX_AT(current_postions, i, 3));
+            //prints the current position and velocity)
+            printf("Current Position: %f, %f, %f\n", current_x[i], current_y[i], current_z[i]);
         }
 
         // Periodically copy the positions to the output data
@@ -249,9 +255,9 @@ int main(int argc, const char* argv[]) {
             {            
                 for(int j = 0; j < n; j++)
                 {   
-                    MATRIX_AT(output, t/output_steps, j*3) = MATRIX_AT(current_postions, j, 1);
-                    MATRIX_AT(output, t/output_steps, j*3+1) = MATRIX_AT(current_postions, j, 2);
-                    MATRIX_AT(output, t/output_steps, j*3+2) = MATRIX_AT(current_postions, j, 3);
+                    MATRIX_AT(output, t/output_steps, j*3) = current_x[j];
+                    MATRIX_AT(output, t/output_steps, j*3+1) = current_y[j];
+                    MATRIX_AT(output, t/output_steps, j*3+2) = current_z[j];
                 }
             }
     }
