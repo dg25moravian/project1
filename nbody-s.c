@@ -63,7 +63,7 @@ typedef struct {
 
 // Function to calculate the distance between two points
 double distance(Point p1, Point p2) {
-    return sqrt(pow(p2.x-p1.x,2) + pow(p2.y-p1.y,2) + pow(p2.z-p1.z,2) + SOFTENING); 
+    return sqrt(((p2.x-p1.x)*(p2.x-p1.x)) + ((p2.y-p1.y)*(p2.y-p1.y)) + ((p2.z-p1.z)*(p2.z-p1.z)) + SOFTENING); 
 }
 
 // Function to calculate the gravitational force between two objects
