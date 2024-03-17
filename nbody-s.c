@@ -155,14 +155,7 @@ int main(int argc, const char* argv[]) {
     Matrix* output = matrix_create_raw(num_outputs, 3*n);
     if (output == NULL) { perror("error creating output matrix"); return 1; }
     matrix_fill_zeros(output);
-    // done: save positions to row `0` of output
-    for(size_t i = 0; i < n; i++)
-    {
-        //this code can be refactored later to use getters
-        output->data[i*3] = input->data[2+(i*6)];
-        output->data[i*3+1] = input->data[3+(i*6)];
-        output->data[i*3+2] = input->data[4+(i*6)];
-    }
+    
 
     // Run simulation for each time step
 
@@ -185,8 +178,6 @@ int main(int argc, const char* argv[]) {
     double* future_velocity_z = (double*)malloc(n * sizeof(double));
 
 
-    //Matrix* current_postions = matrix_create_raw(n, 7);
-    //Matrix* future_velocity = matrix_create_raw(n, 3);
     for(int i = 0; i < n; i++)
     {   
         masses[i] = MATRIX_AT(input, i, 0);
@@ -204,7 +195,16 @@ int main(int argc, const char* argv[]) {
         future_velocity_z[i] = velocity_z[i];
 
         //prints the current position and velocity)
-        printf("Assigned Position: %f, %f, %f\n", current_x[i], current_y[i], current_z[i]);
+        //printf("Assigned Position: %f, %f, %f\n", current_x[i], current_y[i], current_z[i]);
+    }
+
+    //save positions to row `0` of output
+    for(size_t i = 0; i < n; i++)
+    {
+        //this code can be refactored later to use getters
+        output->data[i*3] = current_x[i];
+        output->data[i*3+1] = current_y[i];
+        output->data[i*3+2] = current_z[i];
     }
 
     
@@ -220,7 +220,6 @@ int main(int argc, const char* argv[]) {
     Point totalForces;
     for (size_t t = 1; t < num_steps; t++) 
     {
-    // TODO: compute time step...
 
         for(int i = 0; i < n; i++)
         {
@@ -237,8 +236,9 @@ int main(int argc, const char* argv[]) {
             current_y[i] += velocity_y[i] * time_step;
             current_z[i] += velocity_z[i] * time_step;
             
-            //prints the current position and velocity)
-            printf("Current Position: %f, %f, %f\n", current_x[i], current_y[i], current_z[i]);
+            //Prints the current timestep and amount remaining
+            
+            //printf("Current Position: %f, %f, %f\n", current_x[i], current_y[i], current_z[i]);
         }
 
         // Periodically copy the positions to the output data
@@ -277,6 +277,22 @@ int main(int argc, const char* argv[]) {
 
     // cleanup
 
+    free(masses);
+    free(current_x);
+    free(current_y);
+    free(current_z);
+
+    free(velocity_x);
+    free(velocity_y);
+    free(velocity_z);
+
+    free(future_velocity_x);
+    free(future_velocity_y);
+    free(future_velocity_z);
+
+    free(output);
+    free(input);
+        
 
     return 0;
 }
