@@ -220,25 +220,32 @@ int main(int argc, const char* argv[]) {
     Point totalForces;
     for (size_t t = 1; t < num_steps; t++) 
     {
-
+        //calculates the future velocity of every body
         for(int i = 0; i < n; i++)
         {
             totalForces = calculateNetForce(masses, current_x, current_y, current_z, velocity_x, velocity_y, velocity_z, n, i);
             Point acceleration = calculateAcceleration(totalForces, masses[i]);
             
             // Update the future velocity
-            velocity_x[i] += acceleration.x * time_step;
-            velocity_y[i] += acceleration.y * time_step;
-            velocity_z[i] += acceleration.z * time_step;
+            future_velocity_x[i] += acceleration.x * time_step;
+            future_velocity_y[i] += acceleration.y * time_step;
+            future_velocity_z[i] += acceleration.z * time_step;
+
+        }
+        //updates the current position and velocity of every body
+        for(int i = 0; i < n; i++)
+        {
+            //updates current velocity based on new velocity
+            velocity_x[i] = future_velocity_x[i];
+            velocity_y[i] = future_velocity_y[i];
+            velocity_z[i] = future_velocity_z[i];
 
             // Update the current position
             current_x[i] += velocity_x[i] * time_step;
             current_y[i] += velocity_y[i] * time_step;
             current_z[i] += velocity_z[i] * time_step;
             
-            //Prints the current timestep and amount remaining
-            
-            //printf("Current Position: %f, %f, %f\n", current_x[i], current_y[i], current_z[i]);
+
         }
 
         // Periodically copy the positions to the output data
