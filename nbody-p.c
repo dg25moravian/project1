@@ -56,7 +56,7 @@ typedef struct {
 } Point;
 
 double distance(Point p1, Point p2) {
-    return sqrt(pow(p2.x - p1.x, 2) + pow(p2.y - p1.y, 2) + pow(p2.z - p1.z, 2)) + SOFTENING;
+    return sqrt(((p2.x - p1.x) * (p2.x - p1.x)) + ((p2.y - p1.y)* (p2.y - p1.y)) + ((p2.z - p1.z)*(p2.z - p1.z))) + SOFTENING;
 }
 
 double calculateGravitationalForce(double mass1, double mass2, double distance) {
