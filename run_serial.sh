@@ -5,7 +5,7 @@
 #SBATCH --cpus-per-task=6
 #SBATCH --mem=10G
 #SBATCH -t 12:00:00
-#SBATCH -A mor100
+#SBATCH -A mor101
 #SBATCH -o %x.%j.out
 #SBATCH -e %x.%j.err
 #SBATCH --export=ALL

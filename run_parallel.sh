@@ -3,7 +3,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH -t 12:00:00
-#SBATCH -A mor100
+#SBATCH -A mor101
 #SBATCH -o %x.%j.out
 #SBATCH -e %x.%j.err
 #SBATCH --export=ALL
