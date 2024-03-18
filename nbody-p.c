@@ -132,12 +132,6 @@ int main(int argc, const char* argv[]) {
 
     matrix_fill_zeros(output);
 
-    for (size_t i = 0; i < n; i++) {
-        output->data[i * 3] = input->data[2 + (i * 6)];
-        output->data[i * 3 + 1] = input->data[3 + (i * 6)];
-        output->data[i * 3 + 2] = input->data[4 + (i * 6)];
-    }
-
     Body* bodies = (Body*)malloc(n * sizeof(Body));
     if (bodies == NULL) {
         perror("error allocating memory for bodies");
@@ -172,9 +166,12 @@ int main(int argc, const char* argv[]) {
                 double forceY = force * (particle_j.y - particle_i.y) / dist;
                 double forceZ = force * (particle_j.z - particle_i.z) / dist;
 
-                netForce.x += forceX;
-                netForce.y += forceY;
-                netForce.z += forceZ;
+                #pragma omp critical
+                {
+                    netForce.x += forceX;
+                    netForce.y += forceY;
+                    netForce.z += forceZ;
+                }
             }
 
             Point acceleration = calculateAcceleration(netForce, bodies[i].mass);
@@ -216,3 +213,4 @@ int main(int argc, const char* argv[]) {
 
     return 0;
 }
+
