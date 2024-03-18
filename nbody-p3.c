@@ -33,65 +33,213 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <math.h>
 #include <time.h>
-
 #include <omp.h>
+
 
 #include "matrix.h"
 #include "util.h"
 
-// Gravitational Constant in N m^2 / kg^2 or m^3 / kg / s^2
-#define G 6.6743015e-11
 
-// Softening factor to reduce divide-by-near-zero effects
+#define G 6.6743015e-11
 #define SOFTENING 1e-9
 
 
-int main(int argc, const char* argv[]) {
-    // parse arguments
-    if (argc != 6 && argc != 7) { fprintf(stderr, "usage: %s time-step total-time outputs-per-body input.npy output.npy [num-threads]\n", argv[0]); return 1; }
-    double time_step = atof(argv[1]), total_time = atof(argv[2]);
-    if (time_step <= 0 || total_time <= 0 || time_step > total_time) { fprintf(stderr, "time-step and total-time must be positive with total-time > time-step\n"); return 1; }
-    size_t num_outputs = atoi(argv[3]);
-    if (num_outputs <= 0) { fprintf(stderr, "outputs-per-body must be positive\n"); return 1; }
-    size_t num_threads = argc == 7 ? atoi(argv[6]) : get_num_cores_affinity()/2; // TODO: you may choose to adjust the default value
-    if (num_threads <= 0) { fprintf(stderr, "num-threads must be positive\n"); return 1; }
-    Matrix* input = matrix_from_npy_path(argv[4]);
-    if (input == NULL) { perror("error reading input"); return 1; }
-    if (input->cols != 7) { fprintf(stderr, "input.npy must have 7 columns\n"); return 1; }
-    size_t n = input->rows;
-    if (n == 0) { fprintf(stderr, "input.npy must have at least 1 row\n"); return 1; }
-    if (num_threads > n) { num_threads = n; }
-    size_t num_steps = (size_t)(total_time / time_step + 0.5);
-    if (num_steps < num_outputs) { num_outputs = 1; }
-    size_t output_steps = num_steps/num_outputs;
-    num_outputs = (num_steps+output_steps-1)/output_steps;
-
-    // variables available now:
-    //   time_step    number of seconds between each time point
-    //   total_time   total number of seconds in the simulation
-    //   num_steps    number of time steps to simulate (more useful than total_time)
-    //   num_outputs  number of times the position will be output for all bodies
-    //   output_steps number of steps between each output of the position
-    //   num_threads  number of threads to use
-    //   input        n-by-7 Matrix of input data
-    //   n            number of bodies to simulate
-
-    // start the clock
-    struct timespec start, end;
-    clock_gettime(CLOCK_MONOTONIC, &start);
+typedef struct {
+   double mass;
+   double x, y, z;
+   double vx, vy, vz;
+} Body;
 
 
-    // get the end and computation time
-    clock_gettime(CLOCK_MONOTONIC, &end);
-    double time = get_time_diff(&start, &end);
-    printf("%f secs\n", time);
-
-    // save results
-    //matrix_to_npy_path(argv[5], output);
-
-    // cleanup
+typedef struct {
+   double x;
+   double y;
+   double z;
+} Point;
 
 
-    return 0;
+double distance(Point p1, Point p2) {
+   return sqrt(pow(p2.x - p1.x, 2) + pow(p2.y - p1.y, 2) + pow(p2.z - p1.z, 2)) + SOFTENING;
 }
+
+
+double calculateGravitationalForce(double mass1, double mass2, double distance) {
+   return G * ((mass1 * mass2) / pow(distance, 2));
+}
+
+
+void matrix_destroy(Matrix* matrix) {
+   if (matrix != NULL) {
+       free(matrix->data);
+       free(matrix);
+   }
+}
+
+
+int main(int argc, const char* argv[]) {
+   if (argc != 6 && argc != 7) {
+       fprintf(stderr, "usage: %s time-step total-time outputs-per-body input.npy output.npy [num-threads]\n", argv[0]);
+       return 1;
+   }
+
+
+   double time_step = atof(argv[1]), total_time = atof(argv[2]);
+   if (time_step <= 0 || total_time <= 0 || time_step > total_time) {
+       fprintf(stderr, "time-step and total-time must be positive with total-time > time-step\n");
+       return 1;
+   }
+
+
+   size_t num_outputs = atoi(argv[3]);
+   if (num_outputs <= 0) {
+       fprintf(stderr, "outputs-per-body must be positive\n");
+       return 1;
+   }
+
+
+   Matrix* input = matrix_from_npy_path(argv[4]);
+   if (input == NULL) {
+       perror("error reading input");
+       return 1;
+   }
+
+
+   if (input->cols != 7) {
+       fprintf(stderr, "input.npy must have 7 columns\n");
+       matrix_destroy(input);
+       return 1;
+   }
+
+
+   size_t n = input->rows;
+   if (n == 0) {
+       fprintf(stderr, "input.npy must have at least 1 row\n");
+       matrix_destroy(input);
+       return 1;
+   }
+
+
+   size_t num_steps = (size_t)(total_time / time_step + 0.5);
+   if (num_steps < num_outputs) {
+       num_outputs = 1;
+   }
+
+
+   size_t output_steps = num_steps / num_outputs;
+   num_outputs = (num_steps + output_steps - 1) / output_steps;
+
+
+   struct timespec start, end;
+   clock_gettime(CLOCK_MONOTONIC, &start);
+
+
+   Matrix* output = matrix_create_raw(num_outputs, 3 * n);
+   if (output == NULL) {
+       perror("error creating output matrix");
+       matrix_destroy(input);
+       return 1;
+   }
+
+
+   matrix_fill_zeros(output);
+
+
+   Body* bodies = (Body*)malloc(n * sizeof(Body));
+   if (bodies == NULL) {
+       perror("error allocating memory for bodies");
+       matrix_destroy(input);
+       matrix_destroy(output);
+       return 1;
+   }
+
+
+   for (size_t i = 0; i < n; i++) {
+       bodies[i].mass = input->data[i * 7];
+       bodies[i].x = input->data[i * 7 + 1];
+       bodies[i].y = input->data[i * 7 + 2];
+       bodies[i].z = input->data[i * 7 + 3];
+       bodies[i].vx = input->data[i * 7 + 4];
+       bodies[i].vy = input->data[i * 7 + 5];
+       bodies[i].vz = input->data[i * 7 + 6];
+   }
+
+
+   #pragma omp parallel for
+   for (size_t t = 1; t < num_steps; t++) {
+       for (size_t i = 0; i < n; i++) {
+           Point netForce = {0.0, 0.0, 0.0};
+           Point particle_i = {bodies[i].x, bodies[i].y, bodies[i].z};
+
+
+           for (size_t j = i + 1; j < n; j++) {  // Loop over unique pairs only
+               Point particle_j = {bodies[j].x, bodies[j].y, bodies[j].z};
+               double dist = distance(particle_i, particle_j);
+               double force = calculateGravitationalForce(bodies[i].mass, bodies[j].mass, dist);
+
+
+               double forceX = force * (particle_j.x - particle_i.x) / dist;
+               double forceY = force * (particle_j.y - particle_i.y) / dist;
+               double forceZ = force * (particle_j.z - particle_i.z) / dist;
+
+
+               netForce.x += forceX;
+               netForce.y += forceY;
+               netForce.z += forceZ;
+
+
+               // Apply Newton's Third Law: Equal and opposite forces on each body
+               bodies[i].vx += forceX / bodies[i].mass * time_step;
+               bodies[i].vy += forceY / bodies[i].mass * time_step;
+               bodies[i].vz += forceZ / bodies[i].mass * time_step;
+
+
+               bodies[j].vx -= forceX / bodies[j].mass * time_step;
+               bodies[j].vy -= forceY / bodies[j].mass * time_step;
+               bodies[j].vz -= forceZ / bodies[j].mass * time_step;
+           }
+
+
+           // Update positions using velocities
+           bodies[i].x += bodies[i].vx * time_step;
+           bodies[i].y += bodies[i].vy * time_step;
+           bodies[i].z += bodies[i].vz * time_step;
+       }
+
+
+       if (t % output_steps == 0) {
+           for (size_t j = 0; j < n; j++) {
+               output->data[(t / output_steps) * 3 * n + j * 3] = bodies[j].x;
+               output->data[(t / output_steps) * 3 * n + j * 3 + 1] = bodies[j].y;
+               output->data[(t / output_steps) * 3 * n + j * 3 + 2] = bodies[j].z;
+           }
+       }
+   }
+
+
+   if (num_steps % output_steps != 0) {
+       for (size_t j = 0; j < n; j++) {
+           output->data[(num_outputs - 1) * 3 * n + j * 3] = bodies[j].x;
+           output->data[(num_outputs - 1) * 3 * n + j * 3 + 1] = bodies[j].y;
+           output->data[(num_outputs - 1) * 3 * n + j * 3 + 2] = bodies[j].z;
+       }
+   }
+
+
+   clock_gettime(CLOCK_MONOTONIC, &end);
+   double elapsed_time = get_time_diff(&start, &end);
+   printf("%f secs\n", elapsed_time);
+
+
+   matrix_to_npy_path(argv[5], output);
+
+
+   free(bodies);
+   matrix_destroy(input);
+   matrix_destroy(output);
+
+
+   return 0;
+}
+
