@@ -75,11 +75,10 @@ double calculateGravitationalForce(double mass1, double mass2, double distance) 
 // Function to calculate the net gravitational force on a particle due to several individual forces
 //Superposition principle
 
-Point calculateNetForce(double masses[], double x[], double y[], double z[], double vel_x[], double vel_y[], double vel_z[], int leng, int i)
+Point calculateNetForce(double masses[], double x[], double y[], double z[], int leng, int i)
 {
-    Point netForce = {0.0, 0.0, 0.0};
     Point particle_i, particle_j;
-    double dist, force, forceX, forceY, forceZ;
+    double forceX = 0, forceY = 0, forceZ =0;
     particle_i.x = x[i];
     particle_i.y = y[i];
     particle_i.z = z[i];
@@ -90,21 +89,20 @@ Point calculateNetForce(double masses[], double x[], double y[], double z[], dou
         particle_j.x = x[j];
         particle_j.y = y[j];
         particle_j.z = z[j];
-        dist = distance(particle_i, particle_j);
-
-        force = calculateGravitationalForce(masses[i], masses[j], dist);
+        double dist = distance(particle_i, particle_j);
+        double force = calculateGravitationalForce(masses[i], masses[j], dist);
         
         // Calculate the components of force along x and y directions
-        forceX = force * (particle_j.x - particle_i.x) / dist;
-        forceY = force * (particle_j.y - particle_i.y) / dist;
-        forceZ = force * (particle_j.z - particle_i.z) / dist;
-        
-        // Update the net force
-        netForce.x += forceX;
-        netForce.y += forceY;
-        netForce.z += forceZ;
+        forceX += force * (particle_j.x - particle_i.x) / dist;
+        forceY += force * (particle_j.y - particle_i.y) / dist;
+        forceZ += force * (particle_j.z - particle_i.z) / dist;
     }
     
+    // Update the net force
+    Point netForce = {0.0, 0.0, 0.0};
+    netForce.x = forceX;
+    netForce.y = forceY;
+    netForce.z = forceZ;
     return netForce;
 }
 
@@ -173,11 +171,6 @@ int main(int argc, const char* argv[]) {
     double* velocity_y = (double*)malloc(n * sizeof(double));
     double* velocity_z = (double*)malloc(n * sizeof(double));
 
-    double* future_velocity_x = (double*)malloc(n * sizeof(double));
-    double* future_velocity_y = (double*)malloc(n * sizeof(double));
-    double* future_velocity_z = (double*)malloc(n * sizeof(double));
-
-
     for(int i = 0; i < n; i++)
     {   
         masses[i] = MATRIX_AT(input, i, 0);
@@ -189,10 +182,6 @@ int main(int argc, const char* argv[]) {
         velocity_x[i] = MATRIX_AT(input, i, 4);
         velocity_y[i] = MATRIX_AT(input, i, 5);
         velocity_z[i] = MATRIX_AT(input, i, 6);
-
-        future_velocity_x[i] = velocity_x[i];
-        future_velocity_y[i] = velocity_y[i];
-        future_velocity_z[i] = velocity_z[i];
 
         //prints the current position and velocity)
         //printf("Assigned Position: %f, %f, %f\n", current_x[i], current_y[i], current_z[i]);
@@ -223,41 +212,34 @@ int main(int argc, const char* argv[]) {
         //calculates the future velocity of every body
         for(int i = 0; i < n; i++)
         {
-            totalForces = calculateNetForce(masses, current_x, current_y, current_z, velocity_x, velocity_y, velocity_z, n, i);
+            totalForces = calculateNetForce(masses, current_x, current_y, current_z, n, i);
             Point acceleration = calculateAcceleration(totalForces, masses[i]);
             
             // Update the future velocity
-            future_velocity_x[i] += acceleration.x * time_step;
-            future_velocity_y[i] += acceleration.y * time_step;
-            future_velocity_z[i] += acceleration.z * time_step;
+            velocity_x[i] += acceleration.x * time_step;
+            velocity_y[i] += acceleration.y * time_step;
+            velocity_z[i] += acceleration.z * time_step;
 
         }
         //updates the current position and velocity of every body
         for(int i = 0; i < n; i++)
         {
-            //updates current velocity based on new velocity
-            velocity_x[i] = future_velocity_x[i];
-            velocity_y[i] = future_velocity_y[i];
-            velocity_z[i] = future_velocity_z[i];
-
             // Update the current position
             current_x[i] += velocity_x[i] * time_step;
             current_y[i] += velocity_y[i] * time_step;
             current_z[i] += velocity_z[i] * time_step;
-            
-
         }
 
         // Periodically copy the positions to the output data
-            if (t % output_steps == 0) 
-            {            
-                for(int j = 0; j < n; j++)
-                {   
-                    MATRIX_AT(output, t/output_steps, j*3) = current_x[j];
-                    MATRIX_AT(output, t/output_steps, j*3+1) = current_y[j];
-                    MATRIX_AT(output, t/output_steps, j*3+2) = current_z[j];
-                }
+        if (t % output_steps == 0) 
+        {            
+            for(int j = 0; j < n; j++)
+            {   
+                MATRIX_AT(output, t/output_steps, j*3) = current_x[j];
+                MATRIX_AT(output, t/output_steps, j*3+1) = current_y[j];
+                MATRIX_AT(output, t/output_steps, j*3+2) = current_z[j];
             }
+        }
     }
     // Save the final set of data if necessary
     if (num_steps % output_steps != 0) 
@@ -292,10 +274,6 @@ int main(int argc, const char* argv[]) {
     free(velocity_x);
     free(velocity_y);
     free(velocity_z);
-
-    free(future_velocity_x);
-    free(future_velocity_y);
-    free(future_velocity_z);
 
     free(output);
     free(input);
