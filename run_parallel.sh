@@ -18,14 +18,14 @@ for FILE in random100.npy random1000.npy random10000.npy; do
     echo nbody-p
     for i in `seq 3`
     do
-        ./nbody-p 0.01 10 1000 "$SFILE" "$SCRATCH/temp-$i.npy" $NUM_THREADS
+        ./nbody-p 0.01 10 1000 "$FILE" "$SCRATCH/temp-$i.npy" $NUM_THREADS
     done
     echo
 
     echo nbody-p3
     for i in `seq 3`
     do
-        ./nbody-p3 0.01 10 1000 "$SFILE" "$SCRATCH/temp-$i.npy" $NUM_THREADS
+        ./nbody-p3 0.01 10 1000 "$FILE" "$SCRATCH/temp-$i.npy" $NUM_THREADS
     done
     echo
 
