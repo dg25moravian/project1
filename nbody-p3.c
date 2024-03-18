@@ -66,9 +66,10 @@ double calculateGravitationalForce(double mass1, double mass2, double distance) 
 void matrix_destroy(Matrix* matrix) {
     if (matrix != NULL) {
         free(matrix->data);
-        free(matrix);
     }
+    free(matrix);
 }
+
 
 int main(int argc, const char* argv[]) {
     if (argc != 6 && argc != 7) {
@@ -118,6 +119,7 @@ int main(int argc, const char* argv[]) {
     struct timespec start, end;
     clock_gettime(CLOCK_MONOTONIC, &start);
 
+    // Allocate memory for the output matrix
     Matrix* output = matrix_create_raw(num_outputs, 3 * n);
     if (output == NULL) {
         perror("error creating output matrix");
@@ -127,6 +129,7 @@ int main(int argc, const char* argv[]) {
 
     matrix_fill_zeros(output);
 
+    // Allocate memory for the bodies array
     Body* bodies = (Body*)malloc(n * sizeof(Body));
     if (bodies == NULL) {
         perror("error allocating memory for bodies");
@@ -218,4 +221,3 @@ int main(int argc, const char* argv[]) {
 
     return 0;
 }
-
