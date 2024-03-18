@@ -16,8 +16,6 @@ SCRATCH="/scratch/$USER/job_$SLURM_JOB_ID"
 
 for FILE in random100.npy random1000.npy random10000.npy; do
     echo nbody-p
-    cp "$HOME/nbody-examples/$FILE" "$SCRATCH"
-    SFILE="$SCRATCH/$FILE"
     for i in `seq 3`
     do
         ./nbody-p 0.01 10 1000 "$SFILE" "$SCRATCH/temp-$i.npy" $NUM_THREADS
