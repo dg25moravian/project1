@@ -15,6 +15,7 @@ NUM_THREADS=128  # 64 may be a good choice as well
 SCRATCH="/scratch/$USER/job_$SLURM_JOB_ID"
 
 for FILE in random100.npy random1000.npy random10000.npy; do
+    echo $FILE
     echo nbody-p
     for i in `seq 3`
     do

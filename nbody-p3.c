@@ -79,16 +79,17 @@ double calculateGravitationalForce(double mass1, double mass2, double distance) 
 //Superposition principle
 //uses newtons third law
 
-void calculateForcesMatrix(double masses[], double x[], double y[], double z[], double forces[], int n)
+/**void calculateForcesMatrix(double masses[], double x[], double y[], double z[], double forces[], int n)
 {
     Point particle_i, particle_j;
     double dist, force;
-
+    #pragma omp parallel for shared(masses, x, y, z, forces, n)
     for(int i = 0; i < n; i++)
     {
         particle_i.x = x[i];
         particle_i.y = y[i];
         particle_i.z = z[i];
+
         for(int j = 0; j < i; j++) 
         {
             particle_j.x = x[j];
@@ -96,16 +97,66 @@ void calculateForcesMatrix(double masses[], double x[], double y[], double z[], 
             particle_j.z = z[j];
             dist = distance(particle_i, particle_j);
             force = calculateGravitationalForce(masses[i], masses[j], dist);
-            forces[i*3+0] += force * (particle_j.x - particle_i.x) / dist;
-            forces[i*3+1] += force * (particle_j.y - particle_i.y) / dist;
-            forces[i*3+2] += force * (particle_j.z - particle_i.z) / dist;
-            forces[j*3+0] -= force * (particle_j.x - particle_i.x) / dist;
-            forces[j*3+1] -= force * (particle_j.y - particle_i.y) / dist;
-            forces[j*3+2] -= force * (particle_j.z - particle_i.z) / dist;
+            #pragma omp critical
+            {
+                forces[i*3+0] += force * (particle_j.x - particle_i.x) / dist;
+                forces[i*3+1] += force * (particle_j.y - particle_i.y) / dist;
+                forces[i*3+2] += force * (particle_j.z - particle_i.z) / dist;
+                forces[j*3+0] -= force * (particle_j.x - particle_i.x) / dist;
+                forces[j*3+1] -= force * (particle_j.y - particle_i.y) / dist;
+                forces[j*3+2] -= force * (particle_j.z - particle_i.z) / dist;
+            }
         }
     }    
 }
+**/
 
+void calculateForcesMatrix(double masses[], double x[], double y[], double z[], double forces[], int n)
+{
+    // Private arrays for each thread
+    double* private_forces = (double*)malloc(n * 3 * sizeof(double));
+    memset(private_forces, 0, n * 3 * sizeof(double));
+
+    // Parallelize the outer loop
+    #pragma omp parallel for shared(masses, x, y, z, n) private(private_forces)
+    for (int i = 0; i < n; i++)
+    {
+        Point particle_i, particle_j;
+        double dist, force;
+
+        particle_i.x = x[i];
+        particle_i.y = y[i];
+        particle_i.z = z[i];
+
+        for (int j = 0; j < i; j++)
+        {
+            particle_j.x = x[j];
+            particle_j.y = y[j];
+            particle_j.z = z[j];
+            dist = distance(particle_i, particle_j);
+            force = calculateGravitationalForce(masses[i], masses[j], dist);
+
+            // Update private forces array
+            private_forces[i * 3 + 0] += force * (particle_j.x - particle_i.x) / dist;
+            private_forces[i * 3 + 1] += force * (particle_j.y - particle_i.y) / dist;
+            private_forces[i * 3 + 2] += force * (particle_j.z - particle_i.z) / dist;
+            private_forces[j * 3 + 0] -= force * (particle_j.x - particle_i.x) / dist;
+            private_forces[j * 3 + 1] -= force * (particle_j.y - particle_i.y) / dist;
+            private_forces[j * 3 + 2] -= force * (particle_j.z - particle_i.z) / dist;
+        }
+    }
+
+    // Aggregate private forces into the shared forces array
+    for (int i = 0; i < n; i++)
+    {
+        forces[i * 3 + 0] += private_forces[i * 3 + 0];
+        forces[i * 3 + 1] += private_forces[i * 3 + 1];
+        forces[i * 3 + 2] += private_forces[i * 3 + 2];
+    }
+
+    // Free private array
+    free(private_forces);
+}
 
 
 //using the force matrix, calculate the net forces acting on each body
@@ -157,7 +208,6 @@ int main(int argc, const char* argv[]) {
     clock_gettime(CLOCK_MONOTONIC, &start);
 
 
-    // Done: allocate output matrix as num_outputs x 3*n
     //output matrix has the num_outputs amount of rows and 3*n amount of columns, to save the x, y, z positions of each body
     //output's rows are the amount of times the position will be output for all bodies
     //output's cols are the elements of output, which are the x, y, z positions of each body
@@ -182,9 +232,6 @@ int main(int argc, const char* argv[]) {
     double* velocity_y = (double*)malloc(n * sizeof(double));
     double* velocity_z = (double*)malloc(n * sizeof(double));
 
-    // double* future_velocity_x = (double*)malloc(n * sizeof(double));
-    // double* future_velocity_y = (double*)malloc(n * sizeof(double));
-    // double* future_velocity_z = (double*)malloc(n * sizeof(double));
 
     //creates a a forces matrix, which keeps track of the forces acting on each body
     //force[i][j] is the force acting on body i due to body j
@@ -202,13 +249,6 @@ int main(int argc, const char* argv[]) {
         velocity_x[i] = MATRIX_AT(input, i, 4);
         velocity_y[i] = MATRIX_AT(input, i, 5);
         velocity_z[i] = MATRIX_AT(input, i, 6);
-
-        // future_velocity_x[i] = velocity_x[i];
-        // future_velocity_y[i] = velocity_y[i];
-        // future_velocity_z[i] = velocity_z[i];
-
-        //prints the current position and velocity)
-        //printf("Assigned Position: %f, %f, %f\n", current_x[i], current_y[i], current_z[i]);
     }
 
     //save positions to row `0` of output
@@ -236,30 +276,24 @@ int main(int argc, const char* argv[]) {
         //calculate the forces acting on each body
         memset(forces, 0, n * 3 * sizeof(double));
         calculateForcesMatrix(masses, current_x, current_y, current_z, forces, n);
+        #pragma omp parallel for shared(velocity_x, velocity_y, velocity_z, forces, masses, current_x, current_y, current_z) 
         for (int i = 0; i < n; i++)
         {
-            //for(int j = 0; j < n; j++)
-            //{
-            //    if (i == j) continue;
-                //totalForces = calculateNetForce(MATRIX_AT(forces, i, j), (Point){current_x[i], current_y[i], current_z[i]}, (Point){current_x[j], current_y[j], current_z[j]});
-                Point acceleration = calculateAcceleration((Point){forces[i*3], forces[i*3+1], forces[i*3+2]}, masses[i]);
+            
+            Point acceleration = calculateAcceleration((Point){forces[i*3], forces[i*3+1], forces[i*3+2]}, masses[i]);
 
-                //updates the future velocity based on the acceleration
-                velocity_x[i] += acceleration.x * time_step;
-                velocity_y[i] += acceleration.y * time_step;
-                velocity_z[i] += acceleration.z * time_step;
-            //}
+            //updates the future velocity based on the acceleration
+            velocity_x[i] += acceleration.x * time_step;
+            velocity_y[i] += acceleration.y * time_step;
+            velocity_z[i] += acceleration.z * time_step;
+
         }
 
         //updates the current position and velocity of every body
+
         for(int i = 0; i < n; i++)
         {
             //updates current velocity based on new velocity
-            // velocity_x[i] = future_velocity_x[i];
-            // velocity_y[i] = future_velocity_y[i];
-            // velocity_z[i] = future_velocity_z[i];
-
-            // Update the current position
             current_x[i] += velocity_x[i] * time_step;
             current_y[i] += velocity_y[i] * time_step;
             current_z[i] += velocity_z[i] * time_step;
@@ -310,10 +344,6 @@ int main(int argc, const char* argv[]) {
     free(velocity_x);
     free(velocity_y);
     free(velocity_z);
-
-    // free(future_velocity_x);
-    // free(future_velocity_y);
-    // free(future_velocity_z);
 
     free(output);
     free(input);
