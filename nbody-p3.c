@@ -216,8 +216,9 @@ int main(int argc, const char* argv[]) {
     matrix_to_npy_path(argv[5], output);
 
     free(bodies);
-    matrix_destroy(input);
-    matrix_destroy(output);
+    free(input);
+    free(output);
+
 
     return 0;
 }
