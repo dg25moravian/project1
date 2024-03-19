@@ -211,7 +211,7 @@ int main(int argc, const char* argv[]) {
     for (size_t t = 1; t < num_steps; t++) 
     {
         //calculates the future velocity of every body
-        #pragma omp parallel for private(totalForces, acceleration)
+        #pragma omp parallel for default(none) private(totalForces, acceleration)
         for(int i = 0; i < n; i++)
         {
             totalForces = calculateNetForce(masses, current_x, current_y, current_z, n, i);
@@ -225,7 +225,7 @@ int main(int argc, const char* argv[]) {
 
         }
         //updates the current position and velocity of every body
-        #pragma omp parallel for
+        #pragma omp parallel for default(none)
         for(int i = 0; i < n; i++)
         {
             // Update the current position
@@ -237,11 +237,11 @@ int main(int argc, const char* argv[]) {
         // Periodically copy the positions to the output data
         if (t % output_steps == 0) 
         {            
-            #pragma omp parallel for
+            #pragma omp parallel for default(none)
             
             for(int j = 0; j < n; j++){
                 
-                #pragma omp critical
+                #pragma omp critical default(none)
                 {
                     MATRIX_AT(output, t/output_steps, j*3) = current_x[j];
                     MATRIX_AT(output, t/output_steps, j*3+1) = current_y[j];

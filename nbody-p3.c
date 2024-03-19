@@ -79,7 +79,7 @@ double calculateGravitationalForce(double mass1, double mass2, double distance) 
 //Superposition principle
 //uses newtons third law
 
-/**void calculateForcesMatrix(double masses[], double x[], double y[], double z[], double forces[], int n)
+void calculateForcesMatrix(double masses[], double x[], double y[], double z[], double forces[], int n)
 {
     Point particle_i, particle_j;
     double dist, force;
@@ -107,48 +107,7 @@ double calculateGravitationalForce(double mass1, double mass2, double distance) 
     }    
 }
 
-**/
 
-void calculateForcesMatrix(double masses[], double x[], double y[], double z[], double forces[], int n)
-{
-    #pragma omp simd
-    for (int i = 0; i < n; i++)
-    {
-        Point particle_i;
-        double fx = 0.0, fy = 0.0, fz = 0.0;
-
-        particle_i.x = x[i];
-        particle_i.y = y[i];
-        particle_i.z = z[i];
-
-        for (int j = 0; j < i; j++)
-        {
-            Point particle_j;
-            double dist, force;
-
-            particle_j.x = x[j];
-            particle_j.y = y[j];
-            particle_j.z = z[j];
-            dist = distance(particle_i, particle_j);
-            force = calculateGravitationalForce(masses[i], masses[j], dist);
-
-            // Calculate forces for each particle pair
-            double diff_x = particle_j.x - particle_i.x;
-            double diff_y = particle_j.y - particle_i.y;
-            double diff_z = particle_j.z - particle_i.z;
-
-            // Accumulate forces for particle i
-            forces[i * 3 + 0] += force * diff_x / dist;
-            forces[i * 3 + 1] += force * diff_y / dist;
-            forces[i * 3 + 2] += force * diff_z / dist;
-
-            // Update forces for particle j
-            forces[j * 3 + 0] -= force * diff_x / dist;
-            forces[j * 3 + 1] -= force * diff_y / dist;
-            forces[j * 3 + 2] -= force * diff_z / dist;
-        }
-    }
-}
 
 //using the force matrix, calculate the net forces acting on each body
 Point calculateNetForce(double force, Point particle_i, Point particle_j)
@@ -267,7 +226,7 @@ int main(int argc, const char* argv[]) {
         //calculate the forces acting on each body
         memset(forces, 0, n * 3 * sizeof(double));
         calculateForcesMatrix(masses, current_x, current_y, current_z, forces, n);
-        //#pragma omp parallel for shared(velocity_x, velocity_y, velocity_z, forces, masses, current_x, current_y, current_z) 
+        #pragma omp parallel for default(none) shared(velocity_x, velocity_y, velocity_z, forces, masses, current_x, current_y, current_z) 
         for (int i = 0; i < n; i++)
         {
             
@@ -281,7 +240,6 @@ int main(int argc, const char* argv[]) {
         }
 
         //updates the current position and velocity of every body
-        //#pragma omp parallel for
         for(int i = 0; i < n; i++)
         {
             //updates current velocity based on new velocity
