@@ -79,11 +79,10 @@ double calculateGravitationalForce(double mass1, double mass2, double distance) 
 //Superposition principle
 //uses newtons third law
 
-/**void calculateForcesMatrix(double masses[], double x[], double y[], double z[], double forces[], int n)
+void calculateForcesMatrix(double masses[], double x[], double y[], double z[], double forces[], int n)
 {
     Point particle_i, particle_j;
     double dist, force;
-    #pragma omp parallel for shared(masses, x, y, z, forces, n)
     for(int i = 0; i < n; i++)
     {
         particle_i.x = x[i];
@@ -97,66 +96,17 @@ double calculateGravitationalForce(double mass1, double mass2, double distance) 
             particle_j.z = z[j];
             dist = distance(particle_i, particle_j);
             force = calculateGravitationalForce(masses[i], masses[j], dist);
-            #pragma omp critical
-            {
-                forces[i*3+0] += force * (particle_j.x - particle_i.x) / dist;
-                forces[i*3+1] += force * (particle_j.y - particle_i.y) / dist;
-                forces[i*3+2] += force * (particle_j.z - particle_i.z) / dist;
-                forces[j*3+0] -= force * (particle_j.x - particle_i.x) / dist;
-                forces[j*3+1] -= force * (particle_j.y - particle_i.y) / dist;
-                forces[j*3+2] -= force * (particle_j.z - particle_i.z) / dist;
-            }
+            
+            forces[i*3+0] += force * (particle_j.x - particle_i.x) / dist;
+            forces[i*3+1] += force * (particle_j.y - particle_i.y) / dist;
+            forces[i*3+2] += force * (particle_j.z - particle_i.z) / dist;
+            forces[j*3+0] -= force * (particle_j.x - particle_i.x) / dist;
+            forces[j*3+1] -= force * (particle_j.y - particle_i.y) / dist;
+            forces[j*3+2] -= force * (particle_j.z - particle_i.z) / dist;
         }
     }    
 }
-**/
 
-void calculateForcesMatrix(double masses[], double x[], double y[], double z[], double forces[], int n)
-{
-    // Private arrays for each thread
-    double* private_forces = (double*)malloc(n * 3 * sizeof(double));
-    memset(private_forces, 0, n * 3 * sizeof(double));
-
-    // Parallelize the outer loop
-    #pragma omp parallel for shared(masses, x, y, z, n) private(private_forces)
-    for (int i = 0; i < n; i++)
-    {
-        Point particle_i, particle_j;
-        double dist, force;
-
-        particle_i.x = x[i];
-        particle_i.y = y[i];
-        particle_i.z = z[i];
-
-        for (int j = 0; j < i; j++)
-        {
-            particle_j.x = x[j];
-            particle_j.y = y[j];
-            particle_j.z = z[j];
-            dist = distance(particle_i, particle_j);
-            force = calculateGravitationalForce(masses[i], masses[j], dist);
-
-            // Update private forces array
-            private_forces[i * 3 + 0] += force * (particle_j.x - particle_i.x) / dist;
-            private_forces[i * 3 + 1] += force * (particle_j.y - particle_i.y) / dist;
-            private_forces[i * 3 + 2] += force * (particle_j.z - particle_i.z) / dist;
-            private_forces[j * 3 + 0] -= force * (particle_j.x - particle_i.x) / dist;
-            private_forces[j * 3 + 1] -= force * (particle_j.y - particle_i.y) / dist;
-            private_forces[j * 3 + 2] -= force * (particle_j.z - particle_i.z) / dist;
-        }
-    }
-
-    // Aggregate private forces into the shared forces array
-    for (int i = 0; i < n; i++)
-    {
-        forces[i * 3 + 0] += private_forces[i * 3 + 0];
-        forces[i * 3 + 1] += private_forces[i * 3 + 1];
-        forces[i * 3 + 2] += private_forces[i * 3 + 2];
-    }
-
-    // Free private array
-    free(private_forces);
-}
 
 
 //using the force matrix, calculate the net forces acting on each body
