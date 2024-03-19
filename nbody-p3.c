@@ -226,7 +226,7 @@ int main(int argc, const char* argv[]) {
         //calculate the forces acting on each body
         memset(forces, 0, n * 3 * sizeof(double));
         calculateForcesMatrix(masses, current_x, current_y, current_z, forces, n);
-        #pragma omp parallel for default(none) shared(velocity_x, velocity_y, velocity_z, forces, masses, current_x, current_y, current_z) 
+        #pragma omp parallel for shared(velocity_x, velocity_y, velocity_z, forces, masses, current_x, current_y, current_z) 
         for (int i = 0; i < n; i++)
         {
             
