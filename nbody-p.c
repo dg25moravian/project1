@@ -145,7 +145,7 @@ int main(int argc, const char* argv[]) {
         matrix_destroy(output);
         return 1;
     }
-
+    #pragma omp parallel for
     for (size_t i = 0; i < n; i++) {
         bodies[i].mass = input->data[i * 7];
         bodies[i].x = input->data[i * 7 + 1];
@@ -156,12 +156,11 @@ int main(int argc, const char* argv[]) {
         bodies[i].vz = input->data[i * 7 + 6];
     }
 
-    #pragma omp parallel for
+    
     for (size_t t = 1; t < num_steps; t++) {
         for (size_t i = 0; i < n; i++) {
             Point netForce = {0.0, 0.0, 0.0};
             Point particle_i = {bodies[i].x, bodies[i].y, bodies[i].z};
-
             for (size_t j = 0; j < n; j++) {
                 if (i == j) continue;
                 Point particle_j = {bodies[j].x, bodies[j].y, bodies[j].z};
@@ -211,8 +210,10 @@ int main(int argc, const char* argv[]) {
     matrix_to_npy_path(argv[5], output);
 
     free(bodies);
-    matrix_destroy(input);
-    matrix_destroy(output);
+    free(output);
+    free(input);
+    //matrix_destroy(input);
+    //matrix_destroy(output);
 
     return 0;
 }
